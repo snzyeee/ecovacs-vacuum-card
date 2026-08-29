@@ -28,6 +28,18 @@ const evcFmt12 = (t) => {
   return `${h12}:${evcPad2(m)} ${ap}`;
 };
 const evcNewId = () => `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+
+// Escape freeform text before it goes into innerHTML. Applies to anything
+// authored by the user or an integration: card config values, schedule names,
+// vacuum state attributes (fan_speed_list, rooms keys), error text from failed
+// service calls, and theme names / gradients.
+const evcEsc = (v) =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 const evcObjectId = (entityId) => String(entityId || '').split('.')[1] || '';
 const evcSlug = (name) =>
   String(name || '')
@@ -113,7 +125,7 @@ class EcovacsVacuumCard extends HTMLElement {
     const stateObj = hass.states[this._config.entity];
     if (!stateObj) {
       if (!this._errorShown) {
-        this.innerHTML = `<ha-card><div style="padding:16px;">Entity not found: ${this._config.entity}</div></ha-card>`;
+        this.innerHTML = `<ha-card><div style="padding:16px;">Entity not found: ${evcEsc(this._config.entity)}</div></ha-card>`;
         this._errorShown = true;
         this._built = false;
       }
@@ -325,7 +337,7 @@ class EcovacsVacuumCard extends HTMLElement {
     const grad = this._gradient();
 
     this.innerHTML = `
-      <ha-card class="${grad ? "grad" : ""}" style="${grad ? `background:${grad};border:none;` : ""}">
+      <ha-card class="${grad ? "grad" : ""}" style="${grad ? `background:${evcEsc(grad)};border:none;` : ""}">
         <style>
           /* Dark-surface overrides when a gradient background is configured */
           ha-card.grad .state-text { color: #fff; }
@@ -629,7 +641,7 @@ class EcovacsVacuumCard extends HTMLElement {
       ${fanSpeedList
         .map(
           (f) =>
-            `<div class="dropdown-item ${f === fanSpeed ? 'selected' : ''}" data-fan="${f}">${this._friendlyWord(f)}</div>`
+            `<div class="dropdown-item ${f === fanSpeed ? 'selected' : ''}" data-fan="${evcEsc(f)}">${evcEsc(this._friendlyWord(f))}</div>`
         )
         .join('')}
     </div>`;
@@ -663,10 +675,10 @@ class EcovacsVacuumCard extends HTMLElement {
             const roomId = rooms[key];
             const selIdx = this._selectedRooms.indexOf(roomId);
             const selected = selIdx !== -1;
-            return `<div class="area-tile ${selected ? 'selected' : ''}" data-room="${roomId}">
+            return `<div class="area-tile ${selected ? 'selected' : ''}" data-room="${evcEsc(roomId)}">
                 ${selected ? `<div class="badge">${selIdx + 1}</div>` : ''}
                 <ha-icon icon="${this._roomIcon(key)}"></ha-icon>
-                <div class="area-label">${this._friendlyRoom(key)}</div>
+                <div class="area-label">${evcEsc(this._friendlyRoom(key))}</div>
               </div>`;
           })
           .join('')}
@@ -869,8 +881,8 @@ class EcovacsVacuumCard extends HTMLElement {
         const head = `<div class="sched-head" data-sid="${s.id}" data-act="expand">
             <button class="sched-toggle ${s.enabled ? 'on' : ''}" data-sid="${s.id}" data-act="toggle" title="Enable/disable this schedule"></button>
             <div class="sched-head-text">
-              <div class="sched-name">${s.name}</div>
-              <div class="sched-summary">${s.enabled ? this._schedSummary(s) : 'Off'}</div>
+              <div class="sched-name">${evcEsc(s.name)}</div>
+              <div class="sched-summary">${evcEsc(s.enabled ? this._schedSummary(s) : 'Off')}</div>
             </div>
             <ha-icon class="chevron" icon="${open ? 'mdi:chevron-down' : 'mdi:chevron-right'}"></ha-icon>
           </div>`;
@@ -887,18 +899,18 @@ class EcovacsVacuumCard extends HTMLElement {
           ...Object.keys(rooms).map((key) => {
             const rid = rooms[key];
             const sel = !s.all && s.rooms.includes(rid);
-            return `<div class="area-tile ${sel ? 'selected' : ''}" data-sid="${s.id}" data-act="room" data-room="${rid}">
+            return `<div class="area-tile ${sel ? 'selected' : ''}" data-sid="${s.id}" data-act="room" data-room="${evcEsc(rid)}">
                 <ha-icon icon="${this._roomIcon(key)}"></ha-icon>
-                <div class="area-label">${this._friendlyRoom(key)}</div>
+                <div class="area-label">${evcEsc(this._friendlyRoom(key))}</div>
               </div>`;
           }),
         ].join('');
         return `<div class="sched-row">
             ${head}
             <div class="sched-editor">
-              <div><span class="field-label">Name</span><input type="text" data-sid="${s.id}" data-act="name" value="${s.name.replace(/"/g, '&quot;')}"></div>
+              <div><span class="field-label">Name</span><input type="text" data-sid="${s.id}" data-act="name" value="${evcEsc(s.name)}"></div>
               <div><span class="field-label">Days</span><div class="day-chips">${chips}</div></div>
-              <div><span class="field-label">Start time</span><br><input type="time" data-sid="${s.id}" data-act="time" value="${s.time}"></div>
+              <div><span class="field-label">Start time</span><br><input type="time" data-sid="${s.id}" data-act="time" value="${evcEsc(s.time)}"></div>
               <div><span class="field-label">Rooms</span><div class="areas-grid">${tiles}</div></div>
               <div class="sched-actions">
                 <button class="danger-btn" data-sid="${s.id}" data-act="delete">Delete</button>
@@ -916,7 +928,7 @@ class EcovacsVacuumCard extends HTMLElement {
         <button class="start-btn" data-ref="add-sched">+ Add schedule</button>
         <span class="hint">${ready ? 'Runs server-side via the schedule helper.' : ''}</span>
       </div>
-      ${this._schedStatus ? `<div class="sched-status">${this._schedStatus}</div>` : ''}
+      ${this._schedStatus ? `<div class="sched-status">${evcEsc(this._schedStatus)}</div>` : ''}
     </div>`;
 
     // ---- events
@@ -1405,7 +1417,7 @@ class EcovacsThemePicker extends HTMLElement {
         ? Object.keys(this._hass.themes.themes).sort()
         : [];
     const chip = (g) =>
-      `<span class="tp-chip" style="background:${g || 'var(--divider-color,#ccc)'}"></span>`;
+      `<span class="tp-chip" style="background:${evcEsc(g || 'var(--divider-color,#ccc)')}"></span>`;
     this.innerHTML = `
       <style>
         .tp-wrap { position: relative; display: block; margin-top: 12px; }
@@ -1431,7 +1443,7 @@ class EcovacsThemePicker extends HTMLElement {
       <div class="tp-wrap">
         <div class="tp-field" role="button" aria-haspopup="listbox">
           ${chip(this._grad(this._value))}
-          <span class="tp-name">${this._value || 'Select a theme'}<br><span class="tp-lbl">Theme</span></span>
+          <span class="tp-name">${evcEsc(this._value || 'Select a theme')}<br><span class="tp-lbl">Theme</span></span>
           <span class="tp-caret">&#9662;</span>
         </div>
         ${
@@ -1439,7 +1451,7 @@ class EcovacsThemePicker extends HTMLElement {
             ? `<div class="tp-list" role="listbox">${names
                 .map(
                   (n) =>
-                    `<div class="tp-opt ${n === this._value ? 'sel' : ''}" data-n="${n}">${chip(this._grad(n))}<span>${n}</span></div>`
+                    `<div class="tp-opt ${n === this._value ? 'sel' : ''}" data-n="${evcEsc(n)}">${chip(this._grad(n))}<span>${evcEsc(n)}</span></div>`
                 )
                 .join('')}</div>`
             : ''
@@ -1616,13 +1628,22 @@ class EcovacsVacuumCardEditor extends HTMLElement {
   }
 }
 
-customElements.define('ecovacs-vacuum-card', EcovacsVacuumCard);
-customElements.define('ecovacs-vacuum-card-editor', EcovacsVacuumCardEditor);
-customElements.define('ecovacs-theme-picker', EcovacsThemePicker);
+if (!customElements.get('ecovacs-vacuum-card')) {
+  customElements.define('ecovacs-vacuum-card', EcovacsVacuumCard);
+}
+if (!customElements.get('ecovacs-vacuum-card-editor')) {
+  customElements.define('ecovacs-vacuum-card-editor', EcovacsVacuumCardEditor);
+}
+if (!customElements.get('ecovacs-theme-picker')) {
+  customElements.define('ecovacs-theme-picker', EcovacsThemePicker);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'ecovacs-vacuum-card',
-  name: 'Ecovacs Vacuum Card',
-  description: 'Always-expanded vacuum card replicating the native Ecovacs more-info popup, including area-based cleaning and a server-side weekly scheduler (per-day room selection or whole-house cleans). Built for the Ecovacs integration but works with any vacuum entity that exposes a "rooms" attribute.',
-});
+if (!window.customCards.some((c) => c.type === 'ecovacs-vacuum-card')) {
+  window.customCards.push({
+    type: 'ecovacs-vacuum-card',
+    name: 'Ecovacs Vacuum Card',
+    description:
+      'Always-expanded vacuum card replicating the native Ecovacs more-info popup, including area-based cleaning and a server-side weekly scheduler (per-day room selection or whole-house cleans). Built for the Ecovacs integration but works with any vacuum entity that exposes a "rooms" attribute.',
+  });
+}
