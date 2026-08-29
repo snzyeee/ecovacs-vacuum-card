@@ -2,6 +2,10 @@
 // Scheduling helpers (module scope). Monday-first, matching HA's schedule
 // helper week — same convention as mycrouch/irrigation-schedule-card.
 // ---------------------------------------------------------------------
+// Wrapped in an IIFE so nothing lands in the global scope: a second load of
+// this resource as a classic script would otherwise throw on the top-level
+// const declarations before the customElements guards below are reached.
+(() => {
 const EVC_DAYS = [
   { key: 'monday', label: 'Mon', chip: 'M' },
   { key: 'tuesday', label: 'Tue', chip: 'T' },
@@ -1647,3 +1651,5 @@ if (!window.customCards.some((c) => c.type === 'ecovacs-vacuum-card')) {
       'Always-expanded vacuum card replicating the native Ecovacs more-info popup, including area-based cleaning and a server-side weekly scheduler (per-day room selection or whole-house cleans). Built for the Ecovacs integration but works with any vacuum entity that exposes a "rooms" attribute.',
   });
 }
+
+})();
