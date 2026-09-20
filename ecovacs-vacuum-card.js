@@ -724,10 +724,15 @@ class EcovacsVacuumCard extends HTMLElement {
         if (this._selectedRooms.length === 0) return;
         this._callService('vacuum', 'send_command', {
           entity_id: this._config.entity,
-          command: 'spot_area',
+          command: 'clean_V2',
           params: {
-            rooms: [...this._selectedRooms],
-            cleanings: 1,
+            act: 'start',
+            content: {
+              type: 'freeClean',
+              value: [...this._selectedRooms]
+                .map((room) => `1,${room}`)
+                .join(';'),
+            },
           },
         });
         this._selectedRooms = [];
@@ -1292,8 +1297,8 @@ class EcovacsVacuumCard extends HTMLElement {
   }
 
   // The dispatcher: when a schedule block begins, read the block's data off
-  // the helper's attributes and start either a full clean or a spot_area
-  // clean of the block's rooms. Skips when the master enable is off or the
+  // the helper's attributes and start either a full clean or a clean_V2
+  // room clean of the block's rooms. Skips when the master enable is off or the
   // vacuum is already cleaning.
   _dispatcherConfig(friendly) {
     const vac = this._config.entity;
@@ -1334,10 +1339,13 @@ class EcovacsVacuumCard extends HTMLElement {
                   service: 'vacuum.send_command',
                   target: { entity_id: vac },
                   data: {
-                    command: 'spot_area',
+                    command: 'clean_V2',
                     params: {
-                      rooms: "{{ (rooms_csv | string).split(',') | map('int') | list }}",
-                      cleanings: 1,
+                      act: 'start',
+                      content: {
+                        type: 'freeClean',
+                        value: "{% set ns = namespace(items=[]) %}{% for r in (rooms_csv | string).split(',') %}{% set rr = r | trim %}{% if rr != '' %}{% set ns.items = ns.items + ['1,' ~ rr] %}{% endif %}{% endfor %}{{ ns.items | join(';') }}",
+                      },
                     },
                   },
                 },
